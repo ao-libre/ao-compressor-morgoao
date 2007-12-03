@@ -761,8 +761,8 @@ Public Function Get_Bitmap(ByRef ResourcePath As String, ByRef FileName As Strin
             
             bitmapSize = InfoHead.lngFileSizeUncompressed - offBits
             
-            ReDim bmpInfo.bmiColors(bmpInfo.bmiHeader.biClrUsed / 4) As RGBQUAD
-            Call CopyMemory(bmpInfo.bmiColors(0), rawData(54), bmpInfo.bmiHeader.biClrUsed)
+            ReDim bmpInfo.bmiColors(bmpInfo.bmiHeader.biClrUsed) As RGBQUAD
+            Call CopyMemory(bmpInfo.bmiColors(0), rawData(54), bmpInfo.bmiHeader.biClrUsed * 4)
             
             ReDim data(bitmapSize) As Byte
             Call CopyMemory(data(0), rawData(offBits), bitmapSize)

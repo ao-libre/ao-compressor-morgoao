@@ -708,7 +708,7 @@ End Function
 '
 ' @param    ResourcePath The resource file folder.
 ' @param    FileName The graphic file name.
-' @param    bmpInfoHeader The bitmap info structure.
+' @param    bmpInfo The bitmap info structure.
 ' @param    data() The byte array to return data.
 '
 ' @return   True if no error occurred.
@@ -813,7 +813,7 @@ End Function
 '
 ' @param    ResourcePath The resource file folder.
 ' @param    ReadFiles The number of bitmaps that have already been read.
-' @param    bmpInfoHeader The bitmap info structure.
+' @param    bmpInfo The bitmap info structure.
 ' @param    data() The byte array to return data.
 '
 ' @return   False if there are no more bitmaps tu get.

@@ -1,0 +1,2 @@
+En esta carpeta van los archivos .BMP que fueron descomprimidos
+Estan ordenados en sub carpetas, segun sus versiones

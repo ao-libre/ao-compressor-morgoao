@@ -116,15 +116,15 @@ Public Sub Encrypt_Info_Header(ByRef InfoHead As INFOHEADER)
 'Encrypts normal data or turns encrypted data back to normal
 '*****************************************************************
     Dim EncryptedFileName As String
-    Dim LoopC As Long
+    Dim loopc As Long
     
-    For LoopC = 1 To Len(InfoHead.strFileName)
-        If LoopC And 1 Then
-            EncryptedFileName = EncryptedFileName & Chr(Asc(Mid(InfoHead.strFileName, LoopC, 1)) Xor 12)
+    For loopc = 1 To Len(InfoHead.strFileName)
+        If loopc And 1 Then
+            EncryptedFileName = EncryptedFileName & Chr(Asc(Mid(InfoHead.strFileName, loopc, 1)) Xor 12)
         Else
-            EncryptedFileName = EncryptedFileName & Chr(Asc(Mid(InfoHead.strFileName, LoopC, 1)) Xor 123)
+            EncryptedFileName = EncryptedFileName & Chr(Asc(Mid(InfoHead.strFileName, loopc, 1)) Xor 123)
         End If
-    Next LoopC
+    Next loopc
     
     'Each different variable is encrypted with a different key for extra security
     With InfoHead
@@ -287,53 +287,24 @@ Public Sub Compress_Data(ByRef data() As Byte)
     Dim Dimensions As Long
     Dim DimBuffer As Long
     Dim BufTemp() As Byte
-    Dim BufTemp2() As Byte
-    Static compression_rate As Single
-    Dim LoopC As Long
-    
-    If compression_rate = 0 Then compression_rate = 0.05
+    Dim loopc As Long
     
     Dimensions = UBound(data)
     
-    DimBuffer = Dimensions * compression_rate
+    DimBuffer = Dimensions * 1.06
     
     ReDim BufTemp(DimBuffer)
     
     compress BufTemp(0), DimBuffer, data(0), Dimensions
     
-    'Check if there was data loss
-    ReDim BufTemp2(Dimensions)
-    
-    uncompress BufTemp2(0), Dimensions, BufTemp(0), UBound(BufTemp) + 1
-    
-    For LoopC = 0 To UBound(data)
-        If data(LoopC) <> BufTemp2(LoopC) Then
-            'Clear memory
-            Erase BufTemp
-            Erase BufTemp2
-            
-            'If we have reached 1, then just copy the data
-            If compression_rate < 1 Then
-                'Increase compression rate
-                compression_rate = compression_rate + 0.05
-                'Try again
-                Compress_Data data
-            End If
-            
-            'Reset compression rate and exit
-            compression_rate = 0.05
-            Exit Sub
-        End If
-    Next LoopC
-    
     Erase data
     
     ReDim data(DimBuffer - 1)
+    ReDim Preserve BufTemp(DimBuffer - 1)
     
     data = BufTemp
     
     Erase BufTemp
-    Erase BufTemp2
     
     'Encrypt the first byte of the compressed data for extra security
     data(0) = data(0) Xor 12
@@ -390,7 +361,7 @@ Public Function Compress_Files(ByRef SourcePath As String, ByRef OutputPath As S
     Dim SourceData() As Byte
     Dim FileHead As FILEHEADER
     Dim InfoHead() As INFOHEADER
-    Dim LoopC As Long
+    Dim loopc As Long
 
 'Set up the error handler
 On Local Error GoTo ErrHandler
@@ -439,15 +410,15 @@ On Local Error GoTo ErrHandler
     Open OutputFilePath For Binary Access Read Write As OutputFile
         Seek OutputFile, FileHead.lngFileSize + 1
         
-        For LoopC = 0 To FileHead.lngNumFiles - 1
+        For loopc = 0 To FileHead.lngNumFiles - 1
             'Find a free file number to use and open the file
             SourceFile = FreeFile
-            Open SourcePath & InfoHead(LoopC).strFileName For Binary Access Read Lock Write As SourceFile
+            Open SourcePath & InfoHead(loopc).strFileName For Binary Access Read Lock Write As SourceFile
                 'Find out how large the file is and resize the data array appropriately
                 ReDim SourceData(LOF(SourceFile) - 1)
         
                 'Store the value so we can decompress it later on
-                InfoHead(LoopC).lngFileSizeUncompressed = LOF(SourceFile)
+                InfoHead(loopc).lngFileSizeUncompressed = LOF(SourceFile)
         
                 'Get the data from the file
                 Get SourceFile, , SourceData
@@ -458,7 +429,7 @@ On Local Error GoTo ErrHandler
                 'Save it to a temp file
                 Put OutputFile, , SourceData
         
-                With InfoHead(LoopC)
+                With InfoHead(loopc)
                     'Set up the info headers
                     .lngFileSize = UBound(SourceData) + 1
                     .lngFileStart = FileHead.lngFileSize + 1
@@ -475,7 +446,7 @@ On Local Error GoTo ErrHandler
                 End With
                 
                 'Once an InfoHead index is ready, we encrypt it
-                Encrypt_Info_Header InfoHead(LoopC)
+                Encrypt_Info_Header InfoHead(loopc)
                 
                 Erase SourceData
             'Close temp file
@@ -484,7 +455,7 @@ On Local Error GoTo ErrHandler
             'Update progress bar
             If Not PrgBar Is Nothing Then PrgBar.Value = PrgBar.Value + 1
             DoEvents
-        Next LoopC
+        Next loopc
         
         'Order the InfoHeads
         Sort_Info_Headers InfoHead(), FileHead.lngNumFiles
@@ -607,7 +578,7 @@ Public Function Extract_Files(ByRef ResourcePath As String, ByRef OutputPath As 
 'Last Modify Date: 08/20/2007
 'Extracts all files from a resource file
 '*****************************************************************
-    Dim LoopC As Long
+    Dim loopc As Long
     Dim ResourceFile As Integer
     Dim ResourceFilePath As String
     Dim OutputFile As Integer
@@ -644,11 +615,11 @@ On Local Error GoTo ErrHandler
         Get ResourceFile, , InfoHead
     
         'Check if there is enough hard drive space to extract all files
-        For LoopC = 0 To UBound(InfoHead)
+        For loopc = 0 To UBound(InfoHead)
             'Desencrypt each Info Header before accessing the data
-            Encrypt_Info_Header InfoHead(LoopC)
-            RequiredSpace = RequiredSpace + InfoHead(LoopC).lngFileSizeUncompressed
-        Next LoopC
+            Encrypt_Info_Header InfoHead(loopc)
+            RequiredSpace = RequiredSpace + InfoHead(loopc).lngFileSizeUncompressed
+        Next loopc
     
         If RequiredSpace >= General_Drive_Get_Free_Bytes(Left(App.Path, 3)) Then
             Erase InfoHead
@@ -665,17 +636,17 @@ On Local Error GoTo ErrHandler
     End If
     
     'Extract all of the files from the binary file
-    For LoopC = 0 To UBound(InfoHead)
+    For loopc = 0 To UBound(InfoHead)
         'Extract this file
-        If Extract_File(ResourcePath, InfoHead(LoopC), SourceData) Then
+        If Extract_File(ResourcePath, InfoHead(loopc), SourceData) Then
             'Destroy file if it previuosly existed
-            If Dir(OutputPath & InfoHead(LoopC).strFileName, vbNormal) <> "" Then
-                Kill OutputPath & InfoHead(LoopC).strFileName
+            If Dir(OutputPath & InfoHead(loopc).strFileName, vbNormal) <> "" Then
+                Kill OutputPath & InfoHead(loopc).strFileName
             End If
         
             'Save it!
             OutputFile = FreeFile
-            Open OutputPath & InfoHead(LoopC).strFileName For Binary As OutputFile
+            Open OutputPath & InfoHead(loopc).strFileName For Binary As OutputFile
                 Put OutputFile, , SourceData
             Close OutputFile
             
@@ -684,14 +655,14 @@ On Local Error GoTo ErrHandler
             Erase SourceData
             Erase InfoHead
             'Display an error message if it didn't work
-            MsgBox "No se pudo extraer el archivo " & InfoHead(LoopC).strFileName, vbOKOnly, "Error"
+            MsgBox "No se pudo extraer el archivo " & InfoHead(loopc).strFileName, vbOKOnly, "Error"
             Exit Function
         End If
             
         'Update progress bar
         If Not PrgBar Is Nothing Then PrgBar.Value = PrgBar.Value + 1
         DoEvents
-    Next LoopC
+    Next loopc
     
     Erase InfoHead
     Extract_Files = True

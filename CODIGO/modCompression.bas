@@ -1,9 +1,9 @@
 Attribute VB_Name = "modCompression"
 Option Explicit
 
-Public Const GRH_SOURCE_FILE_EXT = ".bmp"
-Public Const GRH_RESOURCE_FILE = "Graphics.AO"
-Public Const GRH_PATCH_FILE = "Graphics.PATCH"
+Public Const GRH_SOURCE_FILE_EXT As String = ".bmp"
+Public Const GRH_RESOURCE_FILE As String = "Graphics.AO"
+Public Const GRH_PATCH_FILE As String = "Graphics.PATCH"
 
 'This structure will describe our binary file's
 'size, number and version of contained files

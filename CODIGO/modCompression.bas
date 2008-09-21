@@ -20,7 +20,10 @@ Public Type INFOHEADER
     lngFileStart As Long            'Where does the chunk start?
     strFileName As String * 16      'What's the name of the file this data came from?
     lngFileSizeUncompressed As Long 'How big is the file compressed
+    
+#If SeguridadAlkon Then
     lngCheckSum As Long
+#End If
 End Type
 
 Private Enum PatchInstruction
@@ -80,92 +83,52 @@ Private Function General_Drive_Get_Free_Bytes(ByVal DriveName As String) As Curr
     Dim BT As Currency
     Dim FBT As Currency
     
-    retval = GetDiskFreeSpace(Left(DriveName, 2), FB, BT, FBT)
+    retval = GetDiskFreeSpace(Left$(DriveName, 2), FB, BT, FBT)
     
     General_Drive_Get_Free_Bytes = FB * 10000 'convert result to actual size in bytes
 End Function
 
 ''
-' Encrypts normal data or turns encrypted data back to normal.
-'
-' @param    FileHead The data to be encryted.
-
-Public Sub Encrypt_File_Header(ByRef FileHead As FILEHEADER)
-'*****************************************************************
-'Author: Juan Martín Dotuyo Dodero
-'Last Modify Date: 08/19/2007
-'Encrypts normal data or turns encrypted data back to normal
-'*****************************************************************
-    'Each different variable is encrypted with a different key for extra security
-    With FileHead
-        .lngNumFiles = .lngNumFiles Xor 12345
-        .lngFileSize = .lngFileSize Xor 1234567890
-        .lngFileVersion = .lngFileVersion Xor 123456789
-    End With
-End Sub
-
-''
-' Encrypts normal data or turns encrypted data back to normal.
-'
-' @param    InfoHead The data to be encryted.
-
-Public Sub Encrypt_Info_Header(ByRef InfoHead As INFOHEADER)
-'*****************************************************************
-'Author: Juan Martín Dotuyo Dodero
-'Last Modify Date: 08/19/2007
-'Encrypts normal data or turns encrypted data back to normal
-'*****************************************************************
-    Dim EncryptedFileName As String
-    Dim loopc As Long
-    
-    For loopc = 1 To Len(InfoHead.strFileName)
-        If loopc And 1 Then
-            EncryptedFileName = EncryptedFileName & Chr(Asc(Mid(InfoHead.strFileName, loopc, 1)) Xor 12)
-        Else
-            EncryptedFileName = EncryptedFileName & Chr(Asc(Mid(InfoHead.strFileName, loopc, 1)) Xor 123)
-        End If
-    Next loopc
-    
-    'Each different variable is encrypted with a different key for extra security
-    With InfoHead
-        .lngFileSize = .lngFileSize Xor 1234567890
-        .lngFileSizeUncompressed = .lngFileSizeUncompressed Xor 1234567890
-        .lngFileStart = .lngFileStart Xor 123456789
-        .lngCheckSum = .lngCheckSum Xor 123456789
-        .strFileName = EncryptedFileName
-    End With
-End Sub
-
-''
-' Sorts the info headers by their file name.
+' Sorts the info headers by their file name. Uses QuickSort.
 '
 ' @param    InfoHead() The array of headers to be ordered.
-' @param    NumFiles The amount of headers.
+' @param    first The first index in the list.
+' @param    last The last index in the list.
 
-Public Sub Sort_Info_Headers(ByRef InfoHead() As INFOHEADER, ByVal NumFiles As Long)
+Private Sub Sort_Info_Headers(ByRef InfoHead() As INFOHEADER, ByVal first As Long, ByVal last As Long)
 '*****************************************************************
 'Author: Nicolas Matias Gonzalez (NIGO)
 'Last Modify Date: 08/20/2007
-'Sorts the info headers by their file name
+'Sorts the info headers by their file name using QuickSort.
 '*****************************************************************
-    Dim AUX As INFOHEADER
-    Dim i, j As Long
+    Dim aux As INFOHEADER
+    Dim min As Long
+    Dim max As Long
+    Dim comp As String
     
-    For i = 1 To NumFiles - 1
-        AUX = InfoHead(i)
-        j = i - 1
-        
-        Do Until (j < 0)
-            If (AUX.strFileName < InfoHead(j).strFileName) Then
-                InfoHead(j + 1) = InfoHead(j)
-                j = j - 1
-            Else
-                Exit Do
-            End If
+    min = first
+    max = last
+    
+    comp = InfoHead((min + max) \ 2).strFileName
+    
+    Do While min <= max
+        Do While InfoHead(min).strFileName < comp And min < last
+            min = min + 1
         Loop
-        
-        InfoHead(j + 1) = AUX
-    Next i
+        Do While InfoHead(max).strFileName > comp And max > first
+            max = max - 1
+        Loop
+        If min <= max Then
+            aux = InfoHead(min)
+            InfoHead(min) = InfoHead(max)
+            InfoHead(max) = aux
+            min = min + 1
+            max = max - 1
+        End If
+    Loop
+    
+    If first < max Then Call Sort_Info_Headers(InfoHead, first, max)
+    If min < last Then Call Sort_Info_Headers(InfoHead, min, last)
 End Sub
 
 ''
@@ -183,7 +146,7 @@ End Sub
 ' @remark   File must be already open.
 ' @remark   InfoHead must have set its file name to perform the search.
 
-Public Function BinarySearch(ByRef ResourceFile As Integer, ByRef InfoHead As INFOHEADER, ByVal FirstHead As Long, ByVal LastHead As Long, ByVal FileHeaderSize As Long, ByVal InfoHeaderSize As Long) As Boolean
+Private Function BinarySearch(ByRef ResourceFile As Integer, ByRef InfoHead As INFOHEADER, ByVal FirstHead As Long, ByVal LastHead As Long, ByVal FileHeaderSize As Long, ByVal InfoHeaderSize As Long) As Boolean
 '*****************************************************************
 'Author: Nicolas Matias Gonzalez (NIGO)
 'Last Modify Date: 08/21/2007
@@ -220,7 +183,7 @@ End Function
 '
 ' @return   True if found.
 
-Public Function Get_InfoHeader(ByRef ResourcePath As String, ByRef FileName As String, ByRef InfoHead As INFOHEADER) As Boolean
+Private Function Get_InfoHeader(ByRef ResourcePath As String, ByRef FileName As String, ByRef InfoHead As INFOHEADER) As Boolean
 '*****************************************************************
 'Author: Nicolas Matias Gonzalez (NIGO)
 'Last Modify Date: 08/21/2007
@@ -230,26 +193,29 @@ Public Function Get_InfoHeader(ByRef ResourcePath As String, ByRef FileName As S
     Dim ResourceFilePath As String
     Dim FileHead As FILEHEADER
     
-'Set up the error handler
 On Local Error GoTo ErrHandler
 
     ResourceFilePath = ResourcePath & GRH_RESOURCE_FILE
     
     'Set InfoHeader we are looking for
     InfoHead.strFileName = UCase$(FileName)
-    Encrypt_Info_Header InfoHead
+    
+#If SeguridadAlkon Then
+    Call Secure_Info_Header(InfoHead)
+#End If
     
     'Open the binary file
-    ResourceFile = FreeFile
+    ResourceFile = FreeFile()
     Open ResourceFilePath For Binary Access Read Lock Write As ResourceFile
         'Extract the FILEHEADER
         Get ResourceFile, 1, FileHead
-    
-        'Encrypt File Header
-        Encrypt_File_Header FileHead
-    
+        
+#If SeguridadAlkon Then
+        Call Secure_File_Header(FileHead)
+#End If
+        
         'Check the file for validity
-        If LOF(ResourceFile) <> FileHead.lngFileSize Then 'TODO this validation is not necessary
+        If LOF(ResourceFile) <> FileHead.lngFileSize Then
             MsgBox "Archivo de recursos dañado. " & ResourceFilePath, , "Error"
             Close ResourceFile
             Exit Function
@@ -257,20 +223,20 @@ On Local Error GoTo ErrHandler
         
         'Search for it!
         If BinarySearch(ResourceFile, InfoHead, 1, FileHead.lngNumFiles, Len(FileHead), Len(InfoHead)) Then
-            'Desencrypt the header
-            Encrypt_Info_Header InfoHead
+#If SeguridadAlkon Then
+            Call Secure_Info_Header(InfoHead)
+#End If
             
             Get_InfoHeader = True
         End If
         
-    'Close the binary file
     Close ResourceFile
-    
 Exit Function
+
 ErrHandler:
     Close ResourceFile
-    'Display an error message if it didn't work
-    MsgBox "Error al intentar leer el archivo " & ResourceFilePath & ". Razón: " & Err.Number & " : " & Err.Description, vbOKOnly, "Error"
+    
+    Call MsgBox("Error al intentar leer el archivo " & ResourceFilePath & ". Razón: " & Err.Number & " : " & Err.Description, vbOKOnly, "Error")
 End Function
 
 ''
@@ -278,7 +244,7 @@ End Function
 '
 ' @param    data() The data array.
 
-Public Sub Compress_Data(ByRef data() As Byte)
+Private Sub Compress_Data(ByRef data() As Byte)
 '*****************************************************************
 'Author: Juan Martín Dotuyo Dodero
 'Last Modify Date: 10/13/2004
@@ -291,11 +257,12 @@ Public Sub Compress_Data(ByRef data() As Byte)
     
     Dimensions = UBound(data)
     
+    ' The worst case scenario, compressed info is 1.06 times the original - see zlib's doc for more info.
     DimBuffer = Dimensions * 1.06
     
     ReDim BufTemp(DimBuffer)
     
-    compress BufTemp(0), DimBuffer, data(0), Dimensions
+    Call compress(BufTemp(0), DimBuffer, data(0), Dimensions)
     
     Erase data
     
@@ -306,8 +273,9 @@ Public Sub Compress_Data(ByRef data() As Byte)
     
     Erase BufTemp
     
-    'Encrypt the first byte of the compressed data for extra security
-    data(0) = data(0) Xor 12
+#If SeguridadAlkon Then
+    Call Secure_Compressed_Data(data)
+#End If
 End Sub
 
 ''
@@ -316,7 +284,7 @@ End Sub
 ' @param    data() The data array.
 ' @param    OrigSize The original data size.
 
-Public Sub Decompress_Data(ByRef data() As Byte, ByVal OrigSize As Long)
+Private Sub Decompress_Data(ByRef data() As Byte, ByVal OrigSize As Long)
 '*****************************************************************
 'Author: Juan Martín Dotuyo Dodero
 'Last Modify Date: 10/13/2004
@@ -326,10 +294,11 @@ Public Sub Decompress_Data(ByRef data() As Byte, ByVal OrigSize As Long)
     
     ReDim BufTemp(OrigSize - 1)
     
-    'Des-encrypt the first byte of the compressed data
-    data(0) = data(0) Xor 12
+#If SeguridadAlkon Then
+    Call Secure_Compressed_Data(data)
+#End If
     
-    uncompress BufTemp(0), OrigSize, data(0), UBound(data) + 1
+    Call uncompress(BufTemp(0), OrigSize, data(0), UBound(data) + 1)
     
     ReDim data(OrigSize - 1)
     
@@ -363,25 +332,19 @@ Public Function Compress_Files(ByRef SourcePath As String, ByRef OutputPath As S
     Dim InfoHead() As INFOHEADER
     Dim loopc As Long
 
-'Set up the error handler
 On Local Error GoTo ErrHandler
     OutputFilePath = OutputPath & GRH_RESOURCE_FILE
     SourceFileName = Dir(SourcePath & "*" & GRH_SOURCE_FILE_EXT, vbNormal)
     
-    SourceFile = FreeFile
-    
+    ' Create list of all files to be compressed
     While SourceFileName <> ""
         FileHead.lngNumFiles = FileHead.lngNumFiles + 1
         
         ReDim Preserve InfoHead(FileHead.lngNumFiles - 1)
         InfoHead(FileHead.lngNumFiles - 1).strFileName = UCase$(SourceFileName)
         
-        Open SourcePath & SourceFileName For Binary As SourceFile
-        
-        Close SourceFile
-        
         'Search new file
-        SourceFileName = Dir
+        SourceFileName = Dir()
     Wend
     
     If FileHead.lngNumFiles = 0 Then
@@ -390,7 +353,7 @@ On Local Error GoTo ErrHandler
     End If
     
     If Not PrgBar Is Nothing Then
-        PrgBar.Max = FileHead.lngNumFiles
+        PrgBar.max = FileHead.lngNumFiles
         PrgBar.Value = 0
     End If
     
@@ -398,58 +361,51 @@ On Local Error GoTo ErrHandler
     If Dir(OutputFilePath, vbNormal) <> "" Then
         Kill OutputFilePath
     End If
+    
     'Finish setting the FileHeader data
-    
-    'set version
     FileHead.lngFileVersion = version
-    
     FileHead.lngFileSize = Len(FileHead) + FileHead.lngNumFiles * Len(InfoHead(0))
     
     'Open a new file
-    OutputFile = FreeFile
+    OutputFile = FreeFile()
     Open OutputFilePath For Binary Access Read Write As OutputFile
+        ' Move to the end of the headers, where the file data will actually start
         Seek OutputFile, FileHead.lngFileSize + 1
         
+        ' Process every file!
         For loopc = 0 To FileHead.lngNumFiles - 1
-            'Find a free file number to use and open the file
-            SourceFile = FreeFile
+            
+            SourceFile = FreeFile()
             Open SourcePath & InfoHead(loopc).strFileName For Binary Access Read Lock Write As SourceFile
+                
                 'Find out how large the file is and resize the data array appropriately
-                ReDim SourceData(LOF(SourceFile) - 1)
-        
-                'Store the value so we can decompress it later on
                 InfoHead(loopc).lngFileSizeUncompressed = LOF(SourceFile)
-        
+                ReDim SourceData(LOF(SourceFile) - 1)
+                
                 'Get the data from the file
                 Get SourceFile, , SourceData
-        
+                
                 'Compress it
-                Compress_Data SourceData
-        
-                'Save it to a temp file
+                Call Compress_Data(SourceData)
+                
+                'Store it in the resource file
                 Put OutputFile, , SourceData
-        
+                
                 With InfoHead(loopc)
                     'Set up the info headers
                     .lngFileSize = UBound(SourceData) + 1
                     .lngFileStart = FileHead.lngFileSize + 1
-        
-                    'Set up the file header
-                    FileHead.lngFileSize = FileHead.lngFileSize + .lngFileSize
                     
-                    'checksum
-#If SeguridadAlkon Then
-                    .lngCheckSum = FileCheckSum(SourcePath & .strFileName)
-#Else
-                    .lngCheckSum = 0
-#End If
+                    'Update the file header
+                    FileHead.lngFileSize = FileHead.lngFileSize + .lngFileSize
                 End With
                 
-                'Once an InfoHead index is ready, we encrypt it
-                Encrypt_Info_Header InfoHead(loopc)
+#If SeguridadAlkon Then
+                Call Secure_Info_Header(InfoHead(loopc))
+#End If
                 
                 Erase SourceData
-            'Close temp file
+            
             Close SourceFile
         
             'Update progress bar
@@ -458,10 +414,11 @@ On Local Error GoTo ErrHandler
         Next loopc
         
         'Order the InfoHeads
-        Sort_Info_Headers InfoHead(), FileHead.lngNumFiles
-                
-        'Encrypt the FileHeader
-        Encrypt_File_Header FileHead
+        Call Sort_Info_Headers(InfoHead(), 0, FileHead.lngNumFiles - 1)
+        
+#If SeguridadAlkon Then
+        Call Secure_File_Header(FileHead)
+#End If
         
         'Store the headers in the file
         Seek OutputFile, 1
@@ -481,8 +438,8 @@ ErrHandler:
     Erase SourceData
     Erase InfoHead
     Close OutputFile
-    'Display an error message if it didn't work
-    MsgBox "No se pudo crear el archivo binario. Razón: " & Err.Number & " : " & Err.Description, vbOKOnly, "Error"
+    
+    Call MsgBox("No se pudo crear el archivo binario. Razón: " & Err.Number & " : " & Err.Description, vbOKOnly, "Error")
 End Function
 
 ''
@@ -506,7 +463,6 @@ Public Function Get_File_RawData(ByRef ResourcePath As String, ByRef InfoHead As
     Dim ResourceFilePath As String
     Dim ResourceFile As Integer
     
-'Set up the error handler
 On Local Error GoTo ErrHandler
     ResourceFilePath = ResourcePath & GRH_RESOURCE_FILE
     
@@ -520,9 +476,10 @@ On Local Error GoTo ErrHandler
         Get ResourceFile, InfoHead.lngFileStart, data
     'Close the binary file
     Close ResourceFile
-
+    
     Get_File_RawData = True
 Exit Function
+
 ErrHandler:
     Close ResourceFile
 End Function
@@ -544,23 +501,20 @@ Public Function Extract_File(ByRef ResourcePath As String, ByRef InfoHead As INF
 'Last Modify Date: 08/20/2007
 'Extract the specific file from a resource file
 '*****************************************************************
-    
-'Set up the error handler
 On Local Error GoTo ErrHandler
     
     If Get_File_RawData(ResourcePath, InfoHead, data) Then
         'Decompress all data
         If InfoHead.lngFileSize < InfoHead.lngFileSizeUncompressed Then
-            Decompress_Data data, InfoHead.lngFileSizeUncompressed
+            Call Decompress_Data(data, InfoHead.lngFileSizeUncompressed)
         End If
-    
+        
         Extract_File = True
     End If
-
 Exit Function
+
 ErrHandler:
-    'Display an error message if it didn't work
-    MsgBox "Error al intentar decodificar recursos. Razon: " & Err.Number & " : " & Err.Description, vbOKOnly, "Error"
+    Call MsgBox("Error al intentar decodificar recursos. Razon: " & Err.Number & " : " & Err.Description, vbOKOnly, "Error")
 End Function
 
 ''
@@ -587,51 +541,52 @@ Public Function Extract_Files(ByRef ResourcePath As String, ByRef OutputPath As 
     Dim InfoHead() As INFOHEADER
     Dim RequiredSpace As Currency
     
-'Set up the error handler
 On Local Error GoTo ErrHandler
-
     ResourceFilePath = ResourcePath & GRH_RESOURCE_FILE
     
     'Open the binary file
-    ResourceFile = FreeFile
+    ResourceFile = FreeFile()
     Open ResourceFilePath For Binary Access Read Lock Write As ResourceFile
         'Extract the FILEHEADER
         Get ResourceFile, 1, FileHead
-    
-        'Desencrypt File Header
-        Encrypt_File_Header FileHead
-    
+        
+#If SeguridadAlkon Then
+        Call Secure_File_Header(FileHead)
+#End If
+        
         'Check the file for validity
         If LOF(ResourceFile) <> FileHead.lngFileSize Then
-            MsgBox "Archivo de recursos dañado. " & ResourceFilePath, , "Error"
+            Call MsgBox("Archivo de recursos dañado. " & ResourceFilePath, , "Error")
             Close ResourceFile
             Exit Function
         End If
-    
+        
         'Size the InfoHead array
         ReDim InfoHead(FileHead.lngNumFiles - 1)
-    
+        
         'Extract the INFOHEADER
         Get ResourceFile, , InfoHead
-    
+        
         'Check if there is enough hard drive space to extract all files
         For loopc = 0 To UBound(InfoHead)
-            'Desencrypt each Info Header before accessing the data
-            Encrypt_Info_Header InfoHead(loopc)
+#If SeguridadAlkon Then
+            Call Secure_Info_Header(InfoHead(loopc))
+#End If
+            
             RequiredSpace = RequiredSpace + InfoHead(loopc).lngFileSizeUncompressed
         Next loopc
-    
-        If RequiredSpace >= General_Drive_Get_Free_Bytes(Left(App.Path, 3)) Then
+        
+        If RequiredSpace >= General_Drive_Get_Free_Bytes(Left$(App.Path, 3)) Then
             Erase InfoHead
             Close ResourceFile
-            MsgBox "No hay suficiente espacio en el disco para extraer los archivos.", , "Error"
+            Call MsgBox("No hay suficiente espacio en el disco para extraer los archivos.", , "Error")
             Exit Function
         End If
-    'Close the binary file
     Close ResourceFile
     
+    'Update progress bar
     If Not PrgBar Is Nothing Then
-        PrgBar.Max = FileHead.lngNumFiles
+        PrgBar.max = FileHead.lngNumFiles
         PrgBar.Value = 0
     End If
     
@@ -640,12 +595,12 @@ On Local Error GoTo ErrHandler
         'Extract this file
         If Extract_File(ResourcePath, InfoHead(loopc), SourceData) Then
             'Destroy file if it previuosly existed
-            If Dir(OutputPath & InfoHead(loopc).strFileName, vbNormal) <> "" Then
-                Kill OutputPath & InfoHead(loopc).strFileName
+            If FileExist(OutputPath & InfoHead(loopc).strFileName, vbNormal) Then
+                Call Kill(OutputPath & InfoHead(loopc).strFileName)
             End If
-        
+            
             'Save it!
-            OutputFile = FreeFile
+            OutputFile = FreeFile()
             Open OutputPath & InfoHead(loopc).strFileName For Binary As OutputFile
                 Put OutputFile, , SourceData
             Close OutputFile
@@ -654,8 +609,8 @@ On Local Error GoTo ErrHandler
         Else
             Erase SourceData
             Erase InfoHead
-            'Display an error message if it didn't work
-            MsgBox "No se pudo extraer el archivo " & InfoHead(loopc).strFileName, vbOKOnly, "Error"
+            
+            Call MsgBox("No se pudo extraer el archivo " & InfoHead(loopc).strFileName, vbOKOnly, "Error")
             Exit Function
         End If
             
@@ -666,14 +621,14 @@ On Local Error GoTo ErrHandler
     
     Erase InfoHead
     Extract_Files = True
-    
 Exit Function
+
 ErrHandler:
     Close ResourceFile
     Erase SourceData
     Erase InfoHead
-    'Display an error message if it didn't work
-    MsgBox "No se pudo extraer el archivo binario correctamente. Razon: " & Err.Number & " : " & Err.Description, vbOKOnly, "Error"
+    
+    Call MsgBox("No se pudo extraer el archivo binario correctamente. Razon: " & Err.Number & " : " & Err.Description, vbOKOnly, "Error")
 End Function
 
 ''
@@ -699,7 +654,7 @@ Public Function Get_File_Data(ByRef ResourcePath As String, ByRef FileName As St
         'Extract!
         Get_File_Data = Extract_File(ResourcePath, InfoHead, data)
     Else
-        MsgBox "No se se encontro el recurso " & FileName
+        Call MsgBox("No se se encontro el recurso " & FileName)
     End If
 End Function
 
@@ -725,7 +680,7 @@ Public Function Get_Bitmap(ByRef ResourcePath As String, ByRef FileName As Strin
     Dim bitmapSize As Long
     
     If Get_InfoHeader(ResourcePath, FileName, InfoHead) Then
-        'Extract!
+        'Extract the file and create the bitmap data from it.
         If Extract_File(ResourcePath, InfoHead, rawData) Then
             Call CopyMemory(offBits, rawData(10), 4)
             Call CopyMemory(bmpInfo.bmiHeader, rawData(14), 40)
@@ -737,11 +692,11 @@ Public Function Get_Bitmap(ByRef ResourcePath As String, ByRef FileName As Strin
             
             ReDim data(bitmapSize) As Byte
             Call CopyMemory(data(0), rawData(offBits), bitmapSize)
-
+            
             Get_Bitmap = True
         End If
     Else
-        MsgBox "No se se encontro el recurso " & FileName
+        Call MsgBox("No se se encontro el recurso " & FileName)
     End If
 End Function
 
@@ -753,19 +708,19 @@ End Function
 '
 ' @return   True if are equals.
 
-Public Function Compare_Datas(ByRef data1() As Byte, ByRef data2() As Byte) As Boolean
+Private Function Compare_Datas(ByRef data1() As Byte, ByRef data2() As Byte) As Boolean
 '*****************************************************************
 'Author: Nicolas Matias Gonzalez (NIGO)
 'Last Modify Date: 02/11/2007
 'Compare two byte arrays to detect any difference
 '*****************************************************************
-    Dim lenght As Long
+    Dim length As Long
     Dim act As Long
     
-    lenght = UBound(data1) + 1
+    length = UBound(data1) + 1
     
-    If (UBound(data2) + 1) = lenght Then
-        While act < lenght
+    If (UBound(data2) + 1) = length Then
+        While act < length
             If data1(act) Xor data2(act) Then Exit Function
             
             act = act + 1
@@ -790,7 +745,7 @@ End Function
 ' @remark   The number of read files will increase although there is nothing else to read.
 ' @remark   InfoHead is encrypted.
 
-Public Function ReadNext_InfoHead(ByRef ResourceFile As Integer, ByRef FileHead As FILEHEADER, ByRef InfoHead As INFOHEADER, ByRef ReadFiles As Long) As Boolean
+Private Function ReadNext_InfoHead(ByRef ResourceFile As Integer, ByRef FileHead As FILEHEADER, ByRef InfoHead As INFOHEADER, ByRef ReadFiles As Long) As Boolean
 '*****************************************************************
 'Author: Nicolas Matias Gonzalez (NIGO)
 'Last Modify Date: 08/24/2007
@@ -836,10 +791,16 @@ On Error Resume Next
     ResourceFile = FreeFile
     Open ResourcePath & GRH_RESOURCE_FILE For Binary Access Read Lock Write As ResourceFile
     Get ResourceFile, 1, FileHead
-    Encrypt_File_Header FileHead
+    
+#If SeguridadAlkon Then
+    Call Secure_File_Header(FileHead)
+#End If
     
     If ReadNext_InfoHead(ResourceFile, FileHead, InfoHead, ReadFiles) Then
-        Call Encrypt_Info_Header(InfoHead)
+#If SeguridadAlkon Then
+        Call Secure_Info_Header(InfoHead)
+#End If
+        
         Call Get_Bitmap(ResourcePath, InfoHead.strFileName, bmpInfo, data())
         FileName = Trim$(InfoHead.strFileName)
         fileIndex = CLng(Left$(FileName, Len(FileName) - 4))
@@ -899,26 +860,32 @@ On Local Error GoTo ErrHandler
         
         'Get the old FileHeader
         Get OldResourceFile, 1, OldFileHead
-        Encrypt_File_Header OldFileHead
-    
+        
+#If SeguridadAlkon Then
+        Call Secure_File_Header(OldFileHead)
+#End If
+        
         'Check the file for validity
         If LOF(OldResourceFile) <> OldFileHead.lngFileSize Then
-            MsgBox "Archivo de recursos anterior dañado. " & OldResourceFilePath, , "Error"
+            Call MsgBox("Archivo de recursos anterior dañado. " & OldResourceFilePath, , "Error")
             Close OldResourceFile
             Exit Function
         End If
         
         'Open the new binary file
-        NewResourceFile = FreeFile
+        NewResourceFile = FreeFile()
         Open NewResourceFilePath For Binary Access Read Lock Write As NewResourceFile
-    
+            
             'Get the new FileHeader
             Get NewResourceFile, 1, NewFileHead
-            Encrypt_File_Header NewFileHead
-    
+            
+#If SeguridadAlkon Then
+            Call Secure_File_Header(NewFileHead)
+#End If
+            
             'Check the file for validity
             If LOF(NewResourceFile) <> NewFileHead.lngFileSize Then
-                MsgBox "Archivo de recursos anterior dañado. " & NewResourceFilePath, , "Error"
+                Call MsgBox("Archivo de recursos anterior dañado. " & NewResourceFilePath, , "Error")
                 Close NewResourceFile
                 Close OldResourceFile
                 Exit Function
@@ -928,11 +895,11 @@ On Local Error GoTo ErrHandler
             If Dir(OutputFilePath, vbNormal) <> "" Then Kill OutputFilePath
             
             'Open the patch file
-            OutputFile = FreeFile
+            OutputFile = FreeFile()
             Open OutputFilePath For Binary Access Read Write As OutputFile
-    
+                
                 If Not PrgBar Is Nothing Then
-                    PrgBar.Max = OldFileHead.lngNumFiles + NewFileHead.lngNumFiles
+                    PrgBar.max = OldFileHead.lngNumFiles + NewFileHead.lngNumFiles
                     PrgBar.Value = 0
                 End If
                 
@@ -940,55 +907,69 @@ On Local Error GoTo ErrHandler
                 Put OutputFile, , OldFileHead.lngFileVersion
                 
                 'Put the new file header
-                Encrypt_File_Header NewFileHead
+#If SeguridadAlkon Then
+                Call Secure_File_Header(NewFileHead)
+#End If
+
                 Put OutputFile, , NewFileHead
-                Encrypt_File_Header NewFileHead
+                
+#If SeguridadAlkon Then
+                Call Secure_File_Header(NewFileHead)
+#End If
                 
                 'Try to read ald and new first files
                 If ReadNext_InfoHead(OldResourceFile, OldFileHead, OldInfoHead, OldReadFiles) _
-                  And ReadNext_InfoHead(NewResourceFile, NewFileHead, NewInfoHead, NewReadFiles) _
-                    Then
-                
+                  And ReadNext_InfoHead(NewResourceFile, NewFileHead, NewInfoHead, NewReadFiles) Then
+                    
                     'Update
                     PrgBar.Value = PrgBar.Value + 2
                 
                     Do 'Main loop
                         If OldInfoHead.strFileName = NewInfoHead.strFileName Then
-                        'Compare files
                             'Get old file data
-                            Encrypt_Info_Header OldInfoHead
-                            Get_File_RawData OldResourcePath, OldInfoHead, auxData
+#If SeguridadAlkon Then
+                            Call Secure_Info_Header(OldInfoHead)
+#End If
+                            Call Get_File_RawData(OldResourcePath, OldInfoHead, auxData)
+                            
                             'Get new file data
-                            Encrypt_Info_Header NewInfoHead
-                            Get_File_RawData NewResourcePath, NewInfoHead, data
+#If SeguridadAlkon Then
+                            Call Secure_Info_Header(NewInfoHead)
+#End If
+                            Call Get_File_RawData(NewResourcePath, NewInfoHead, data)
                             
                             If Not Compare_Datas(data, auxData) Then
-                            'Modify file
+                                'File was modified
                                 Instruction = PatchInstruction.Modify_File
                                 Put OutputFile, , Instruction
+                                
                                 'Write header
-                                Encrypt_Info_Header NewInfoHead
+#If SeguridadAlkon Then
+                                Call Secure_Info_Header(NewInfoHead)
+#End If
                                 Put OutputFile, , NewInfoHead
+                                
                                 'Write data
                                 Put OutputFile, , data
                             End If
-                
+                            
                             'Read next OldResource
                             If Not ReadNext_InfoHead(OldResourceFile, OldFileHead, OldInfoHead, OldReadFiles) Then
                                 Exit Do
                             End If
+                            
                             'Read next NewResource
                             If Not ReadNext_InfoHead(NewResourceFile, NewFileHead, NewInfoHead, NewReadFiles) Then
                                 'Reread last OldInfoHead
                                 OldReadFiles = OldReadFiles - 1
                                 Exit Do
                             End If
-                
+                            
                             'Update
                             If Not PrgBar Is Nothing Then PrgBar.Value = PrgBar.Value + 2
-                
+                        
                         ElseIf OldInfoHead.strFileName < NewInfoHead.strFileName Then
-                        'Delete file
+                            'File was deleted
                             Instruction = PatchInstruction.Delete_File
                             Put OutputFile, , Instruction
                             Put OutputFile, , OldInfoHead
@@ -999,32 +980,36 @@ On Local Error GoTo ErrHandler
                                 NewReadFiles = NewReadFiles - 1
                                 Exit Do
                             End If
-                
+                            
                             'Update
                             If Not PrgBar Is Nothing Then PrgBar.Value = PrgBar.Value + 1
-                
+                        
                         Else
-                        'Create file
+                            'New file
                             Instruction = PatchInstruction.Create_File
                             Put OutputFile, , Instruction
                             Put OutputFile, , NewInfoHead
+                            
                             'Get file data
-                            Encrypt_Info_Header NewInfoHead
-                            Get_File_RawData NewResourcePath, NewInfoHead, data
+#If SeguridadAlkon Then
+                            Call Secure_Info_Header(NewInfoHead)
+#End If
+                            Call Get_File_RawData(NewResourcePath, NewInfoHead, data)
+                            
                             'Write data
                             Put OutputFile, , data
-                
+                            
                             'Read next NewResource
                             If Not ReadNext_InfoHead(NewResourceFile, NewFileHead, NewInfoHead, NewReadFiles) Then
                                 'Reread last OldInfoHead
                                 OldReadFiles = OldReadFiles - 1
                                 Exit Do
                             End If
-                
+                            
                             'Update
                             If Not PrgBar Is Nothing Then PrgBar.Value = PrgBar.Value + 1
                         End If
-                
+                        
                         DoEvents
                     Loop
                 
@@ -1052,35 +1037,38 @@ On Local Error GoTo ErrHandler
                     Instruction = PatchInstruction.Create_File
                     Put OutputFile, , Instruction
                     Put OutputFile, , NewInfoHead
+                    
                     'Get file data
-                    Encrypt_Info_Header NewInfoHead
-                    Get_File_RawData NewResourcePath, NewInfoHead, data
+#If SeguridadAlkon Then
+                    Call Secure_Info_Header(NewInfoHead)
+#End If
+                    Call Get_File_RawData(NewResourcePath, NewInfoHead, data)
                     'Write data
                     Put OutputFile, , data
-                
+                    
                     'Update
                     If Not PrgBar Is Nothing Then PrgBar.Value = PrgBar.Value + 1
                     DoEvents
                 Wend
-                
+            
             'Close the patch file
             Close OutputFile
-
+        
         'Close the new binary file
         Close NewResourceFile
-
+    
     'Close the old binary file
     Close OldResourceFile
     
     Make_Patch = True
-    
 Exit Function
+
 ErrHandler:
     Close OutputFile
     Close NewResourceFile
     Close OldResourceFile
-    'Display an error message if it didn't work
-    MsgBox "No se pudo terminar de crear el parche. Razon: " & Err.Number & " : " & Err.Description, vbOKOnly, "Error"
+    
+    Call MsgBox("No se pudo terminar de crear el parche. Razon: " & Err.Number & " : " & Err.Description, vbOKOnly, "Error")
 End Function
 
 ''
@@ -1121,30 +1109,31 @@ Public Function Apply_Patch(ByRef ResourcePath As String, ByRef PatchPath As Str
     Dim WrittenFiles As Long
     Dim DataOutputPos As Long
 
-'Set up the error handler
 On Local Error GoTo ErrHandler
 
     ResourceFilePath = ResourcePath & GRH_RESOURCE_FILE
     PatchFilePath = PatchPath & GRH_PATCH_FILE
     OutputFilePath = ResourcePath & GRH_RESOURCE_FILE & "tmp"
-
+    
     'Open the old binary file
-    ResourceFile = FreeFile
+    ResourceFile = FreeFile()
     Open ResourceFilePath For Binary Access Read Lock Write As ResourceFile
-
+        
         'Read the old FileHeader
         Get ResourceFile, , FileHead
-        Encrypt_File_Header FileHead
-
+#If SeguridadAlkon Then
+        Call Secure_File_Header(FileHead)
+#End If
+        
         'Check the file for validity
         If LOF(ResourceFile) <> FileHead.lngFileSize Then
-            MsgBox "Archivo de recursos anterior dañado. " & ResourceFilePath, , "Error"
+            Call MsgBox("Archivo de recursos anterior dañado. " & ResourceFilePath, , "Error")
             Close ResourceFile
             Exit Function
         End If
-
+        
         'Open the patch file
-        PatchFile = FreeFile
+        PatchFile = FreeFile()
         Open PatchFilePath For Binary As PatchFile ' Access Read Lock Write As PatchFile
             
             'Get previous file version
@@ -1152,7 +1141,7 @@ On Local Error GoTo ErrHandler
             
             'Check the file version
             If OldResourceVersion <> FileHead.lngFileVersion Then
-                MsgBox "Incongruencia en versiones.", , "Error"
+                Call MsgBox("Incongruencia en versiones.", , "Error")
                 Close ResourceFile
                 Close PatchFilePath
                 Exit Function
@@ -1162,28 +1151,29 @@ On Local Error GoTo ErrHandler
             Get PatchFile, , PatchFileHead
             
             'Destroy file if it previuosly existed
-            If Dir(OutputFilePath, vbNormal) <> "" Then Kill OutputFilePath
-
+            If FileExist(OutputFilePath, vbNormal) Then Call Kill(OutputFilePath)
+            
             'Open the patch file
-            OutputFile = FreeFile
+            OutputFile = FreeFile()
             Open OutputFilePath For Binary Access Read Write As OutputFile
-
+                
                 'Save the file header
                 Put OutputFile, , PatchFileHead
-                'Desencrypt to use it
-                Encrypt_File_Header PatchFileHead
-
+#If SeguridadAlkon Then
+                Call Secure_File_Header(PatchFileHead)
+#End If
+                
                 If Not PrgBar Is Nothing Then
-                    PrgBar.Max = PatchFileHead.lngNumFiles
+                    PrgBar.max = PatchFileHead.lngNumFiles
                     PrgBar.Value = 0
                 End If
-
+                
                 'Update
                 DataOutputPos = Len(FileHead) + Len(InfoHead) * PatchFileHead.lngNumFiles + 1
                 
                 'Process loop
-                While Loc(PatchFile) < LOF(PatchFile) 'EOF(PatchFile)
-                
+                While Loc(PatchFile) < LOF(PatchFile)
+                    
                     'Get the instruction
                     Get PatchFile, , Instruction
                     'Get the InfoHead
@@ -1191,21 +1181,24 @@ On Local Error GoTo ErrHandler
                     
                     Do
                         EOResource = Not ReadNext_InfoHead(ResourceFile, FileHead, InfoHead, ResourceReadFiles)
-
+                        
                         If Not EOResource And InfoHead.strFileName < PatchInfoHead.strFileName Then
-                            'Desencrypt InfoHead
-                            Encrypt_Info_Header InfoHead
-                            'GetData
-                            Get_File_RawData ResourcePath, InfoHead, data
-                            'Update InfoHead
+#If SeguridadAlkon Then
+                            Call Secure_Info_Header(InfoHead)
+#End If
+                            
+                            'GetData and update InfoHead
+                            Call Get_File_RawData(ResourcePath, InfoHead, data)
                             InfoHead.lngFileStart = DataOutputPos
-                            'Encrypt InfoHead
-                            Encrypt_Info_Header InfoHead
-
+                            
+#If SeguridadAlkon Then
+                            Call Secure_Info_Header(InfoHead)
+#End If
+                            
                             'Save file!
                             Put OutputFile, Len(FileHead) + Len(InfoHead) * WrittenFiles + 1, InfoHead
                             Put OutputFile, DataOutputPos, data
-
+                            
                             'Update
                             DataOutputPos = DataOutputPos + UBound(data) + 1
                             WrittenFiles = WrittenFiles + 1
@@ -1214,7 +1207,7 @@ On Local Error GoTo ErrHandler
                             Exit Do
                         End If
                     Loop
-
+                    
                     Select Case Instruction
                         'Delete
                         Case PatchInstruction.Delete_File
@@ -1222,23 +1215,26 @@ On Local Error GoTo ErrHandler
                                 Err.Description = "Incongruencia en archivos de recurso"
                                 GoTo ErrHandler
                             End If
-
+                        
                         'Create
                         Case PatchInstruction.Create_File
                             If InfoHead.strFileName > PatchInfoHead.strFileName Or EOResource Then
-                            'Save it
+                                'Save it
                                 Put OutputFile, Len(FileHead) + Len(InfoHead) * WrittenFiles + 1, PatchInfoHead
+                                
                                 'Get file data
-                                Encrypt_Info_Header PatchInfoHead
+#If SeguridadAlkon Then
+                                Call Secure_Info_Header(PatchInfoHead)
+#End If
                                 ReDim data(PatchInfoHead.lngFileSize - 1)
                                 Get PatchFile, , data
-                                'Write data
+                                
                                 Put OutputFile, DataOutputPos, data
                                 
                                 'Reanalize last Resource InfoHead
                                 EOResource = False
                                 ResourceReadFiles = ResourceReadFiles - 1
-
+                                
                                 'Update
                                 DataOutputPos = DataOutputPos + UBound(data) + 1
                                 WrittenFiles = WrittenFiles + 1
@@ -1247,17 +1243,20 @@ On Local Error GoTo ErrHandler
                                 Err.Description = "Incongruencia en archivos de recurso"
                                 GoTo ErrHandler
                             End If
-
+                        
                         'Modify
                         Case PatchInstruction.Modify_File
                             If InfoHead.strFileName = PatchInfoHead.strFileName Then
-                            'Save it
+                                'Save it
                                 Put OutputFile, Len(FileHead) + Len(InfoHead) * WrittenFiles + 1, PatchInfoHead
+                                
                                 'Get file data
-                                Encrypt_Info_Header PatchInfoHead
+#If SeguridadAlkon Then
+                                Call Secure_Info_Header(PatchInfoHead)
+#End If
                                 ReDim data(PatchInfoHead.lngFileSize - 1)
                                 Get PatchFile, , data
-                                'Write data
+                                
                                 Put OutputFile, DataOutputPos, data
 
                                 'Update
@@ -1269,50 +1268,52 @@ On Local Error GoTo ErrHandler
                                 GoTo ErrHandler
                             End If
                     End Select
-
+                    
                     DoEvents
                 Wend
                 
                 'Read everything?
                 While ReadNext_InfoHead(ResourceFile, FileHead, InfoHead, ResourceReadFiles)
-                    'Desencrypt InfoHead
-                    Encrypt_Info_Header InfoHead
-                    'GetData
-                    Get_File_RawData ResourcePath, InfoHead, data
-                    'Update InfoHead
+#If SeguridadAlkon Then
+                    Call Secure_Info_Header(InfoHead)
+#End If
+                    'GetData and update InfoHeader
+                    Call Get_File_RawData(ResourcePath, InfoHead, data)
                     InfoHead.lngFileStart = DataOutputPos
-                    'Encrypt InfoHead
-                    Encrypt_Info_Header InfoHead
-
+                    
+#If SeguridadAlkon Then
+                    Call Secure_Info_Header(InfoHead)
+#End If
+                    
                     'Save file!
                     Put OutputFile, Len(FileHead) + Len(InfoHead) * WrittenFiles + 1, InfoHead
                     Put OutputFile, DataOutputPos, data
-
+                    
                     'Update
                     DataOutputPos = DataOutputPos + UBound(data) + 1
                     WrittenFiles = WrittenFiles + 1
                     If Not PrgBar Is Nothing Then PrgBar.Value = WrittenFiles
                     DoEvents
                 Wend
-                
+            
             'Close the patch file
             Close OutputFile
-
+        
         'Close the new binary file
         Close PatchFile
-
+    
     'Close the old binary file
     Close ResourceFile
-
+    
     'Check integrity
     If (PatchFileHead.lngNumFiles = WrittenFiles) Then
 #If SeguridadAlkon Then
-        If FileCheckSum(OutputFilePath) = CheckSum Then
+        Dim md5 As New clsMD5
+        If md5.GetMD5File(OutputFilePath) = CheckSum Then
 #End If
             'Replace File
-            Kill ResourceFilePath
-            FileCopy OutputFilePath, ResourceFilePath
-            Kill OutputFilePath
+            Call Kill(ResourceFilePath)
+            Name OutputFilePath As ResourceFilePath
 #If SeguridadAlkon Then
         Else
             Err.Description = "Checksum Incorrecto"
@@ -1325,14 +1326,14 @@ On Local Error GoTo ErrHandler
     End If
     
     Apply_Patch = True
-    Exit Function
+Exit Function
     
 ErrHandler:
     Close OutputFile
     Close PatchFile
     Close ResourceFile
     'Destroy file if created
-    If Dir(OutputFilePath, vbNormal) <> "" Then Kill OutputFilePath
-    'Display an error message if it didn't work
-    MsgBox "No se pudo parchear. Razon: " & Err.Number & " : " & Err.Description, vbOKOnly, "Error"
+    If FileExist(OutputFilePath, vbNormal) Then Call Kill(OutputFilePath)
+    
+    Call MsgBox("No se pudo parchear. Razon: " & Err.Number & " : " & Err.Description, vbOKOnly, "Error")
 End Function

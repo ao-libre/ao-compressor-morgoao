@@ -32,8 +32,8 @@ Private Enum PatchInstruction
     Modify_File
 End Enum
 
-Private Declare Function compress Lib "zlib.dll" (dest As Any, destlen As Any, src As Any, ByVal srclen As Long) As Long
-Private Declare Function uncompress Lib "zlib.dll" (dest As Any, destlen As Any, src As Any, ByVal srclen As Long) As Long
+Private Declare Function compress Lib "zlib.dll" (dest As Any, destlen As Any, Src As Any, ByVal srclen As Long) As Long
+Private Declare Function uncompress Lib "zlib.dll" (dest As Any, destlen As Any, Src As Any, ByVal srclen As Long) As Long
 
 Private Declare Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (ByRef dest As Any, ByRef source As Any, ByVal byteCount As Long)
 
@@ -59,18 +59,26 @@ Public Type BITMAPINFOHEADER
     biClrImportant As Long
 End Type
 Public Type RGBQUAD
-        rgbBlue As Byte
-        rgbGreen As Byte
-        rgbRed As Byte
-        rgbReserved As Byte
+    rgbBlue As Byte
+    rgbGreen As Byte
+    rgbRed As Byte
+    rgbReserved As Byte
 End Type
 Public Type BITMAPINFO
-        bmiHeader As BITMAPINFOHEADER
-        bmiColors() As RGBQUAD
+    bmiHeader As BITMAPINFOHEADER
+    bmiColors(255) As RGBQUAD
 End Type
 
+Private Const BI_RGB As Long = 0
+Private Const BI_RLE8 As Long = 1
+Private Const BI_RLE4 As Long = 2
+Private Const BI_BITFIELDS As Long = 3
+Private Const BI_JPG As Long = 4
+Private Const BI_PNG As Long = 5
+
+
 'To get free bytes in drive
-Private Declare Function GetDiskFreeSpace Lib "kernel32" Alias "GetDiskFreeSpaceExA" (ByVal lpRootPathName As String, FreeBytesToCaller As Currency, BytesTotal As Currency, FreeBytesTotal As Currency) As Long
+Private Declare Function GetDiskFreeSpace Lib "kernel32" Alias "GetDiskFreeSpaceExA" (ByVal lpRootPathName As String, FreeBytesToCaller As Currency, bytesTotal As Currency, FreeBytesTotal As Currency) As Long
 
 Private Function General_Drive_Get_Free_Bytes(ByVal DriveName As String) As Currency
 '**************************************************************
@@ -236,7 +244,7 @@ Exit Function
 ErrHandler:
     Close ResourceFile
     
-    Call MsgBox("Error al intentar leer el archivo " & ResourceFilePath & ". Razón: " & Err.Number & " : " & Err.Description, vbOKOnly, "Error")
+    Call MsgBox("Error al intentar leer el archivo " & ResourceFilePath & ". Razón: " & Err.number & " : " & Err.Description, vbOKOnly, "Error")
 End Function
 
 ''
@@ -354,7 +362,7 @@ On Local Error GoTo ErrHandler
     
     If Not PrgBar Is Nothing Then
         PrgBar.max = FileHead.lngNumFiles
-        PrgBar.Value = 0
+        PrgBar.value = 0
     End If
     
     'Destroy file if it previuosly existed
@@ -409,7 +417,7 @@ On Local Error GoTo ErrHandler
             Close SourceFile
         
             'Update progress bar
-            If Not PrgBar Is Nothing Then PrgBar.Value = PrgBar.Value + 1
+            If Not PrgBar Is Nothing Then PrgBar.value = PrgBar.value + 1
             DoEvents
         Next loopc
         
@@ -439,7 +447,7 @@ ErrHandler:
     Erase InfoHead
     Close OutputFile
     
-    Call MsgBox("No se pudo crear el archivo binario. Razón: " & Err.Number & " : " & Err.Description, vbOKOnly, "Error")
+    Call MsgBox("No se pudo crear el archivo binario. Razón: " & Err.number & " : " & Err.Description, vbOKOnly, "Error")
 End Function
 
 ''
@@ -514,7 +522,7 @@ On Local Error GoTo ErrHandler
 Exit Function
 
 ErrHandler:
-    Call MsgBox("Error al intentar decodificar recursos. Razon: " & Err.Number & " : " & Err.Description, vbOKOnly, "Error")
+    Call MsgBox("Error al intentar decodificar recursos. Razon: " & Err.number & " : " & Err.Description, vbOKOnly, "Error")
 End Function
 
 ''
@@ -576,7 +584,7 @@ On Local Error GoTo ErrHandler
             RequiredSpace = RequiredSpace + InfoHead(loopc).lngFileSizeUncompressed
         Next loopc
         
-        If RequiredSpace >= General_Drive_Get_Free_Bytes(Left$(App.Path, 3)) Then
+        If RequiredSpace >= General_Drive_Get_Free_Bytes(Left$(App.path, 3)) Then
             Erase InfoHead
             Close ResourceFile
             Call MsgBox("No hay suficiente espacio en el disco para extraer los archivos.", , "Error")
@@ -587,7 +595,7 @@ On Local Error GoTo ErrHandler
     'Update progress bar
     If Not PrgBar Is Nothing Then
         PrgBar.max = FileHead.lngNumFiles
-        PrgBar.Value = 0
+        PrgBar.value = 0
     End If
     
     'Extract all of the files from the binary file
@@ -615,7 +623,7 @@ On Local Error GoTo ErrHandler
         End If
             
         'Update progress bar
-        If Not PrgBar Is Nothing Then PrgBar.Value = PrgBar.Value + 1
+        If Not PrgBar Is Nothing Then PrgBar.value = PrgBar.value + 1
         DoEvents
     Next loopc
     
@@ -628,7 +636,7 @@ ErrHandler:
     Erase SourceData
     Erase InfoHead
     
-    Call MsgBox("No se pudo extraer el archivo binario correctamente. Razon: " & Err.Number & " : " & Err.Description, vbOKOnly, "Error")
+    Call MsgBox("No se pudo extraer el archivo binario correctamente. Razon: " & Err.number & " : " & Err.Description, vbOKOnly, "Error")
 End Function
 
 ''
@@ -678,6 +686,7 @@ Public Function Get_Bitmap(ByRef ResourcePath As String, ByRef FileName As Strin
     Dim rawData() As Byte
     Dim offBits As Long
     Dim bitmapSize As Long
+    Dim colorCount As Long
     
     If Get_InfoHeader(ResourcePath, FileName, InfoHead) Then
         'Extract the file and create the bitmap data from it.
@@ -685,12 +694,24 @@ Public Function Get_Bitmap(ByRef ResourcePath As String, ByRef FileName As Strin
             Call CopyMemory(offBits, rawData(10), 4)
             Call CopyMemory(bmpInfo.bmiHeader, rawData(14), 40)
             
-            bitmapSize = InfoHead.lngFileSizeUncompressed - offBits
+            With bmpInfo.bmiHeader
+                bitmapSize = AlignScan(.biWidth, .biBitCount) * Abs(.biHeight)
+                
+                If .biBitCount <> 24 Or .biCompression = BI_BITFIELDS Then
+                    If .biClrUsed < 1 Then
+                        colorCount = 2 ^ .biBitCount
+                    Else
+                        colorCount = .biClrUsed
+                    End If
+                    
+                    ' When using bitfields on 16 or 32 bits images, bmiColors has a 3-longs mask.
+                    If .biBitCount >= 16 And .biCompression = BI_BITFIELDS Then colorCount = 3
+                    
+                    Call CopyMemory(bmpInfo.bmiColors(0), rawData(54), colorCount * 4)
+                End If
+            End With
             
-            ReDim bmpInfo.bmiColors(bmpInfo.bmiHeader.biClrUsed) As RGBQUAD
-            Call CopyMemory(bmpInfo.bmiColors(0), rawData(54), bmpInfo.bmiHeader.biClrUsed * 4)
-            
-            ReDim data(bitmapSize) As Byte
+            ReDim data(bitmapSize - 1) As Byte
             Call CopyMemory(data(0), rawData(offBits), bitmapSize)
             
             Get_Bitmap = True
@@ -900,7 +921,7 @@ On Local Error GoTo ErrHandler
                 
                 If Not PrgBar Is Nothing Then
                     PrgBar.max = OldFileHead.lngNumFiles + NewFileHead.lngNumFiles
-                    PrgBar.Value = 0
+                    PrgBar.value = 0
                 End If
                 
                 'put previous file version (unencrypted)
@@ -922,7 +943,7 @@ On Local Error GoTo ErrHandler
                   And ReadNext_InfoHead(NewResourceFile, NewFileHead, NewInfoHead, NewReadFiles) Then
                     
                     'Update
-                    PrgBar.Value = PrgBar.Value + 2
+                    PrgBar.value = PrgBar.value + 2
                 
                     Do 'Main loop
                         If OldInfoHead.strFileName = NewInfoHead.strFileName Then
@@ -966,7 +987,7 @@ On Local Error GoTo ErrHandler
                             End If
                             
                             'Update
-                            If Not PrgBar Is Nothing Then PrgBar.Value = PrgBar.Value + 2
+                            If Not PrgBar Is Nothing Then PrgBar.value = PrgBar.value + 2
                         
                         ElseIf OldInfoHead.strFileName < NewInfoHead.strFileName Then
                             'File was deleted
@@ -982,7 +1003,7 @@ On Local Error GoTo ErrHandler
                             End If
                             
                             'Update
-                            If Not PrgBar Is Nothing Then PrgBar.Value = PrgBar.Value + 1
+                            If Not PrgBar Is Nothing Then PrgBar.value = PrgBar.value + 1
                         
                         Else
                             'New file
@@ -1007,7 +1028,7 @@ On Local Error GoTo ErrHandler
                             End If
                             
                             'Update
-                            If Not PrgBar Is Nothing Then PrgBar.Value = PrgBar.Value + 1
+                            If Not PrgBar Is Nothing Then PrgBar.value = PrgBar.value + 1
                         End If
                         
                         DoEvents
@@ -1027,7 +1048,7 @@ On Local Error GoTo ErrHandler
                     Put OutputFile, , OldInfoHead
                 
                     'Update
-                    If Not PrgBar Is Nothing Then PrgBar.Value = PrgBar.Value + 1
+                    If Not PrgBar Is Nothing Then PrgBar.value = PrgBar.value + 1
                     DoEvents
                 Wend
                 
@@ -1047,7 +1068,7 @@ On Local Error GoTo ErrHandler
                     Put OutputFile, , data
                     
                     'Update
-                    If Not PrgBar Is Nothing Then PrgBar.Value = PrgBar.Value + 1
+                    If Not PrgBar Is Nothing Then PrgBar.value = PrgBar.value + 1
                     DoEvents
                 Wend
             
@@ -1068,7 +1089,7 @@ ErrHandler:
     Close NewResourceFile
     Close OldResourceFile
     
-    Call MsgBox("No se pudo terminar de crear el parche. Razon: " & Err.Number & " : " & Err.Description, vbOKOnly, "Error")
+    Call MsgBox("No se pudo terminar de crear el parche. Razon: " & Err.number & " : " & Err.Description, vbOKOnly, "Error")
 End Function
 
 ''
@@ -1165,7 +1186,7 @@ On Local Error GoTo ErrHandler
                 
                 If Not PrgBar Is Nothing Then
                     PrgBar.max = PatchFileHead.lngNumFiles
-                    PrgBar.Value = 0
+                    PrgBar.value = 0
                 End If
                 
                 'Update
@@ -1202,7 +1223,7 @@ On Local Error GoTo ErrHandler
                             'Update
                             DataOutputPos = DataOutputPos + UBound(data) + 1
                             WrittenFiles = WrittenFiles + 1
-                            If Not PrgBar Is Nothing Then PrgBar.Value = WrittenFiles
+                            If Not PrgBar Is Nothing Then PrgBar.value = WrittenFiles
                         Else
                             Exit Do
                         End If
@@ -1238,7 +1259,7 @@ On Local Error GoTo ErrHandler
                                 'Update
                                 DataOutputPos = DataOutputPos + UBound(data) + 1
                                 WrittenFiles = WrittenFiles + 1
-                                If Not PrgBar Is Nothing Then PrgBar.Value = WrittenFiles
+                                If Not PrgBar Is Nothing Then PrgBar.value = WrittenFiles
                             Else
                                 Err.Description = "Incongruencia en archivos de recurso"
                                 GoTo ErrHandler
@@ -1262,7 +1283,7 @@ On Local Error GoTo ErrHandler
                                 'Update
                                 DataOutputPos = DataOutputPos + UBound(data) + 1
                                 WrittenFiles = WrittenFiles + 1
-                                If Not PrgBar Is Nothing Then PrgBar.Value = WrittenFiles
+                                If Not PrgBar Is Nothing Then PrgBar.value = WrittenFiles
                             Else
                                 Err.Description = "Incongruencia en archivos de recurso"
                                 GoTo ErrHandler
@@ -1292,7 +1313,7 @@ On Local Error GoTo ErrHandler
                     'Update
                     DataOutputPos = DataOutputPos + UBound(data) + 1
                     WrittenFiles = WrittenFiles + 1
-                    If Not PrgBar Is Nothing Then PrgBar.Value = WrittenFiles
+                    If Not PrgBar Is Nothing Then PrgBar.value = WrittenFiles
                     DoEvents
                 Wend
             
@@ -1308,8 +1329,8 @@ On Local Error GoTo ErrHandler
     'Check integrity
     If (PatchFileHead.lngNumFiles = WrittenFiles) Then
 #If SeguridadAlkon Then
-        Dim md5 As New clsMD5
-        If md5.GetMD5File(OutputFilePath) = CheckSum Then
+        Dim MD5 As New clsMD5
+        If MD5.GetMD5File(OutputFilePath) = CheckSum Then
 #End If
             'Replace File
             Call Kill(ResourceFilePath)
@@ -1335,5 +1356,14 @@ ErrHandler:
     'Destroy file if created
     If FileExist(OutputFilePath, vbNormal) Then Call Kill(OutputFilePath)
     
-    Call MsgBox("No se pudo parchear. Razon: " & Err.Number & " : " & Err.Description, vbOKOnly, "Error")
+    Call MsgBox("No se pudo parchear. Razon: " & Err.number & " : " & Err.Description, vbOKOnly, "Error")
 End Function
+
+Private Function AlignScan(ByVal inWidth As Long, ByVal inDepth As Integer) As Long
+'*****************************************************************
+'Author: Unknown
+'Last Modify Date: Unknown
+'*****************************************************************
+    AlignScan = (((inWidth * inDepth) + &H1F) And Not &H1F&) \ &H8
+End Function
+

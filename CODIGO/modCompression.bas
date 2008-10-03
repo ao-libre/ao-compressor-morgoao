@@ -697,7 +697,7 @@ Public Function Get_Bitmap(ByRef ResourcePath As String, ByRef FileName As Strin
             With bmpInfo.bmiHeader
                 bitmapSize = AlignScan(.biWidth, .biBitCount) * Abs(.biHeight)
                 
-                If .biBitCount <> 24 Or .biCompression = BI_BITFIELDS Then
+                If .biBitCount < 24 Or .biCompression = BI_BITFIELDS Or (.biCompression <> BI_RGB And .biBitCount = 32) Then
                     If .biClrUsed < 1 Then
                         colorCount = 2 ^ .biBitCount
                     Else

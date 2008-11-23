@@ -244,7 +244,7 @@ Exit Function
 ErrHandler:
     Close ResourceFile
     
-    Call MsgBox("Error al intentar leer el archivo " & ResourceFilePath & ". Razón: " & Err.number & " : " & Err.Description, vbOKOnly, "Error")
+    Call MsgBox("Error al intentar leer el archivo " & ResourceFilePath & ". Razón: " & Err.Number & " : " & Err.Description, vbOKOnly, "Error")
 End Function
 
 ''
@@ -362,7 +362,7 @@ On Local Error GoTo ErrHandler
     
     If Not PrgBar Is Nothing Then
         PrgBar.max = FileHead.lngNumFiles
-        PrgBar.value = 0
+        PrgBar.Value = 0
     End If
     
     'Destroy file if it previuosly existed
@@ -417,7 +417,7 @@ On Local Error GoTo ErrHandler
             Close SourceFile
         
             'Update progress bar
-            If Not PrgBar Is Nothing Then PrgBar.value = PrgBar.value + 1
+            If Not PrgBar Is Nothing Then PrgBar.Value = PrgBar.Value + 1
             DoEvents
         Next loopc
         
@@ -447,7 +447,7 @@ ErrHandler:
     Erase InfoHead
     Close OutputFile
     
-    Call MsgBox("No se pudo crear el archivo binario. Razón: " & Err.number & " : " & Err.Description, vbOKOnly, "Error")
+    Call MsgBox("No se pudo crear el archivo binario. Razón: " & Err.Number & " : " & Err.Description, vbOKOnly, "Error")
 End Function
 
 ''
@@ -522,7 +522,7 @@ On Local Error GoTo ErrHandler
 Exit Function
 
 ErrHandler:
-    Call MsgBox("Error al intentar decodificar recursos. Razon: " & Err.number & " : " & Err.Description, vbOKOnly, "Error")
+    Call MsgBox("Error al intentar decodificar recursos. Razon: " & Err.Number & " : " & Err.Description, vbOKOnly, "Error")
 End Function
 
 ''
@@ -584,7 +584,7 @@ On Local Error GoTo ErrHandler
             RequiredSpace = RequiredSpace + InfoHead(loopc).lngFileSizeUncompressed
         Next loopc
         
-        If RequiredSpace >= General_Drive_Get_Free_Bytes(Left$(App.path, 3)) Then
+        If RequiredSpace >= General_Drive_Get_Free_Bytes(Left$(App.Path, 3)) Then
             Erase InfoHead
             Close ResourceFile
             Call MsgBox("No hay suficiente espacio en el disco para extraer los archivos.", , "Error")
@@ -595,7 +595,7 @@ On Local Error GoTo ErrHandler
     'Update progress bar
     If Not PrgBar Is Nothing Then
         PrgBar.max = FileHead.lngNumFiles
-        PrgBar.value = 0
+        PrgBar.Value = 0
     End If
     
     'Extract all of the files from the binary file
@@ -623,7 +623,7 @@ On Local Error GoTo ErrHandler
         End If
             
         'Update progress bar
-        If Not PrgBar Is Nothing Then PrgBar.value = PrgBar.value + 1
+        If Not PrgBar Is Nothing Then PrgBar.Value = PrgBar.Value + 1
         DoEvents
     Next loopc
     
@@ -636,7 +636,7 @@ ErrHandler:
     Erase SourceData
     Erase InfoHead
     
-    Call MsgBox("No se pudo extraer el archivo binario correctamente. Razon: " & Err.number & " : " & Err.Description, vbOKOnly, "Error")
+    Call MsgBox("No se pudo extraer el archivo binario correctamente. Razon: " & Err.Number & " : " & Err.Description, vbOKOnly, "Error")
 End Function
 
 ''
@@ -921,7 +921,7 @@ On Local Error GoTo ErrHandler
                 
                 If Not PrgBar Is Nothing Then
                     PrgBar.max = OldFileHead.lngNumFiles + NewFileHead.lngNumFiles
-                    PrgBar.value = 0
+                    PrgBar.Value = 0
                 End If
                 
                 'put previous file version (unencrypted)
@@ -943,7 +943,7 @@ On Local Error GoTo ErrHandler
                   And ReadNext_InfoHead(NewResourceFile, NewFileHead, NewInfoHead, NewReadFiles) Then
                     
                     'Update
-                    PrgBar.value = PrgBar.value + 2
+                    PrgBar.Value = PrgBar.Value + 2
                 
                     Do 'Main loop
                         If OldInfoHead.strFileName = NewInfoHead.strFileName Then
@@ -987,7 +987,7 @@ On Local Error GoTo ErrHandler
                             End If
                             
                             'Update
-                            If Not PrgBar Is Nothing Then PrgBar.value = PrgBar.value + 2
+                            If Not PrgBar Is Nothing Then PrgBar.Value = PrgBar.Value + 2
                         
                         ElseIf OldInfoHead.strFileName < NewInfoHead.strFileName Then
                             'File was deleted
@@ -1003,7 +1003,7 @@ On Local Error GoTo ErrHandler
                             End If
                             
                             'Update
-                            If Not PrgBar Is Nothing Then PrgBar.value = PrgBar.value + 1
+                            If Not PrgBar Is Nothing Then PrgBar.Value = PrgBar.Value + 1
                         
                         Else
                             'New file
@@ -1028,7 +1028,7 @@ On Local Error GoTo ErrHandler
                             End If
                             
                             'Update
-                            If Not PrgBar Is Nothing Then PrgBar.value = PrgBar.value + 1
+                            If Not PrgBar Is Nothing Then PrgBar.Value = PrgBar.Value + 1
                         End If
                         
                         DoEvents
@@ -1048,7 +1048,7 @@ On Local Error GoTo ErrHandler
                     Put OutputFile, , OldInfoHead
                 
                     'Update
-                    If Not PrgBar Is Nothing Then PrgBar.value = PrgBar.value + 1
+                    If Not PrgBar Is Nothing Then PrgBar.Value = PrgBar.Value + 1
                     DoEvents
                 Wend
                 
@@ -1068,7 +1068,7 @@ On Local Error GoTo ErrHandler
                     Put OutputFile, , data
                     
                     'Update
-                    If Not PrgBar Is Nothing Then PrgBar.value = PrgBar.value + 1
+                    If Not PrgBar Is Nothing Then PrgBar.Value = PrgBar.Value + 1
                     DoEvents
                 Wend
             
@@ -1089,7 +1089,7 @@ ErrHandler:
     Close NewResourceFile
     Close OldResourceFile
     
-    Call MsgBox("No se pudo terminar de crear el parche. Razon: " & Err.number & " : " & Err.Description, vbOKOnly, "Error")
+    Call MsgBox("No se pudo terminar de crear el parche. Razon: " & Err.Number & " : " & Err.Description, vbOKOnly, "Error")
 End Function
 
 ''
@@ -1186,7 +1186,7 @@ On Local Error GoTo ErrHandler
                 
                 If Not PrgBar Is Nothing Then
                     PrgBar.max = PatchFileHead.lngNumFiles
-                    PrgBar.value = 0
+                    PrgBar.Value = 0
                 End If
                 
                 'Update
@@ -1223,7 +1223,7 @@ On Local Error GoTo ErrHandler
                             'Update
                             DataOutputPos = DataOutputPos + UBound(data) + 1
                             WrittenFiles = WrittenFiles + 1
-                            If Not PrgBar Is Nothing Then PrgBar.value = WrittenFiles
+                            If Not PrgBar Is Nothing Then PrgBar.Value = WrittenFiles
                         Else
                             Exit Do
                         End If
@@ -1259,7 +1259,7 @@ On Local Error GoTo ErrHandler
                                 'Update
                                 DataOutputPos = DataOutputPos + UBound(data) + 1
                                 WrittenFiles = WrittenFiles + 1
-                                If Not PrgBar Is Nothing Then PrgBar.value = WrittenFiles
+                                If Not PrgBar Is Nothing Then PrgBar.Value = WrittenFiles
                             Else
                                 Err.Description = "Incongruencia en archivos de recurso"
                                 GoTo ErrHandler
@@ -1283,7 +1283,7 @@ On Local Error GoTo ErrHandler
                                 'Update
                                 DataOutputPos = DataOutputPos + UBound(data) + 1
                                 WrittenFiles = WrittenFiles + 1
-                                If Not PrgBar Is Nothing Then PrgBar.value = WrittenFiles
+                                If Not PrgBar Is Nothing Then PrgBar.Value = WrittenFiles
                             Else
                                 Err.Description = "Incongruencia en archivos de recurso"
                                 GoTo ErrHandler
@@ -1313,7 +1313,7 @@ On Local Error GoTo ErrHandler
                     'Update
                     DataOutputPos = DataOutputPos + UBound(data) + 1
                     WrittenFiles = WrittenFiles + 1
-                    If Not PrgBar Is Nothing Then PrgBar.value = WrittenFiles
+                    If Not PrgBar Is Nothing Then PrgBar.Value = WrittenFiles
                     DoEvents
                 Wend
             
@@ -1356,7 +1356,7 @@ ErrHandler:
     'Destroy file if created
     If FileExist(OutputFilePath, vbNormal) Then Call Kill(OutputFilePath)
     
-    Call MsgBox("No se pudo parchear. Razon: " & Err.number & " : " & Err.Description, vbOKOnly, "Error")
+    Call MsgBox("No se pudo parchear. Razon: " & Err.Number & " : " & Err.Description, vbOKOnly, "Error")
 End Function
 
 Private Function AlignScan(ByVal inWidth As Long, ByVal inDepth As Integer) As Long
@@ -1367,3 +1367,31 @@ Private Function AlignScan(ByVal inWidth As Long, ByVal inDepth As Integer) As L
     AlignScan = (((inWidth * inDepth) + &H1F) And Not &H1F&) \ &H8
 End Function
 
+''
+' Retrieves the version number of a given resource file.
+'
+' @param    ResourceFilePath The resource file complete path.
+'
+' @return   The version number of the given file.
+
+Public Function GetVersion(ByVal ResourceFilePath As String) As Long
+'*****************************************************************
+'Author: Juan Martín Sotuyo Dodero (Maraxus)
+'Last Modify Date: 11/23/2008
+'
+'*****************************************************************
+    Dim ResourceFile As Integer
+    Dim FileHead As FILEHEADER
+    
+    ResourceFile = FreeFile()
+    Open ResourceFilePath For Binary Access Read Lock Write As ResourceFile
+        'Extract the FILEHEADER
+        Get ResourceFile, 1, FileHead
+        
+#If SeguridadAlkon Then
+        Call Secure_File_Header(FileHead)
+#End If
+    Close ResourceFile
+    
+    GetVersion = FileHead.lngFileVersion
+End Function

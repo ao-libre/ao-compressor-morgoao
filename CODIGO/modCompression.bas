@@ -351,6 +351,11 @@ On Local Error GoTo ErrHandler
         ReDim Preserve InfoHead(FileHead.lngNumFiles - 1)
         InfoHead(FileHead.lngNumFiles - 1).strFileName = UCase$(SourceFileName)
         
+#If SeguridadAlkon Then
+        'We want the list ordered considerinbg encryption
+        Call Secure_Info_Header(InfoHead(FileHead.lngNumFiles - 1))
+#End If
+        
         'Search new file
         SourceFileName = Dir()
     Wend
@@ -385,6 +390,10 @@ On Local Error GoTo ErrHandler
         
         ' Process every file!
         For loopc = 0 To FileHead.lngNumFiles - 1
+            
+#If SeguridadAlkon Then
+            Call Secure_Info_Header(InfoHead(loopc))
+#End If
             
             SourceFile = FreeFile()
             Open SourcePath & InfoHead(loopc).strFileName For Binary Access Read Lock Write As SourceFile
@@ -717,7 +726,7 @@ Public Function Get_Bitmap(ByRef ResourcePath As String, ByRef FileName As Strin
             Get_Bitmap = True
         End If
     Else
-        Call MsgBox("No se se encontro el recurso " & FileName)
+        Call MsgBox("No se encontro el recurso " & FileName)
     End If
 End Function
 

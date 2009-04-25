@@ -1,5 +1,5 @@
 VERSION 5.00
-Object = "{831FDD16-0C5C-11D2-A9FC-0000F8754DA1}#2.0#0"; "MSCOMCTL.ocx"
+Object = "{831FDD16-0C5C-11D2-A9FC-0000F8754DA1}#2.0#0"; "Mscomctl.ocx"
 Begin VB.Form frmMain 
    Caption         =   "Compresor de recursos graficos"
    ClientHeight    =   1545
@@ -193,7 +193,7 @@ Private Sub cmdPatch_Click()
     
     'Check if the version is already extracted
     If FileExist(OutputPath, vbDirectory) Then
-        If MsgBox("El parche ya se ecnuentra realizado. ¿Desea reparchear?", vbYesNo, "Atencion") = vbNo Then _
+        If MsgBox("El parche ya se encuentra realizado. ¿Desea reparchear?", vbYesNo, "Atencion") = vbNo Then _
             Exit Sub
     Else
         'Create this version folder

@@ -263,7 +263,7 @@ Private Sub Compress_Data(ByRef data() As Byte)
     Dim BufTemp() As Byte
     Dim loopc As Long
     
-    Dimensions = UBound(data)
+    Dimensions = UBound(data) + 1
     
     ' The worst case scenario, compressed info is 1.06 times the original - see zlib's doc for more info.
     DimBuffer = Dimensions * 1.06

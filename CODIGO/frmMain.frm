@@ -1,17 +1,25 @@
 VERSION 5.00
-Object = "{831FDD16-0C5C-11D2-A9FC-0000F8754DA1}#2.0#0"; "Mscomctl.ocx"
+Object = "{831FDD16-0C5C-11D2-A9FC-0000F8754DA1}#2.0#0"; "mscomctl.ocx"
 Begin VB.Form frmMain 
    Caption         =   "Compresor de recursos graficos"
-   ClientHeight    =   1545
+   ClientHeight    =   1515
    ClientLeft      =   60
    ClientTop       =   450
-   ClientWidth     =   5625
+   ClientWidth     =   5355
    ClipControls    =   0   'False
    LinkTopic       =   "Form1"
-   ScaleHeight     =   103
+   ScaleHeight     =   101
    ScaleMode       =   3  'Pixel
-   ScaleWidth      =   375
+   ScaleWidth      =   357
    StartUpPosition =   2  'CenterScreen
+   Begin VB.CommandButton cmdApplyPatch 
+      Caption         =   "Parchear"
+      Height          =   735
+      Left            =   3960
+      TabIndex        =   7
+      Top             =   720
+      Width           =   1335
+   End
    Begin VB.Frame StatusFrame 
       Caption         =   "StatusFrame"
       Height          =   735
@@ -33,20 +41,20 @@ Begin VB.Form frmMain
       End
    End
    Begin VB.CommandButton cmdPatch 
-      Caption         =   "Parchear"
+      Caption         =   "Crear Parche"
       Height          =   735
-      Left            =   3720
+      Left            =   2640
       TabIndex        =   4
       Top             =   720
-      Width           =   1815
+      Width           =   1335
    End
    Begin VB.CommandButton cmdExtract 
       Caption         =   "Extraer"
       Height          =   735
-      Left            =   1920
+      Left            =   1320
       TabIndex        =   3
       Top             =   720
-      Width           =   1815
+      Width           =   1335
    End
    Begin VB.TextBox txtVersion 
       Alignment       =   2  'Center
@@ -63,7 +71,7 @@ Begin VB.Form frmMain
       Left            =   120
       TabIndex        =   0
       Top             =   720
-      Width           =   1815
+      Width           =   1215
    End
    Begin VB.Label Label1 
       Caption         =   "Working Version :"
@@ -89,6 +97,70 @@ Attribute VB_Creatable = False
 Attribute VB_PredeclaredId = True
 Attribute VB_Exposed = False
 Option Explicit
+
+Private Sub cmdApplyPatch_Click()
+    Dim NewResourcePath As String
+    Dim OldResourcePath As String
+    Dim PatchPaths As String
+    
+    Dim NewVersion As Long
+    Dim OldVersion As Long
+    
+    OldVersion = CLng(txtVersion.Text)
+    NewVersion = OldVersion + 1
+    
+    NewResourcePath = App.Path & RESOURCE_PATH & NewVersion & "\"
+    OldResourcePath = App.Path & RESOURCE_PATH & OldVersion & "\"
+    PatchPaths = App.Path & PATCH_PATH & OldVersion & " to " & NewVersion & "\"
+    
+    'Check if the old resource file exists
+    If Not FileExist(OldResourcePath & GRH_RESOURCE_FILE, vbNormal) Then
+        MsgBox "No se encontraron los recursos de la version actual." & vbCrLf & OldResourcePath, , "Error"
+        Exit Sub
+    End If
+    
+    'We look if there's a patch to apply to the current version.
+    If Not FileExist(PatchPaths, vbDirectory) Or Not FileExist(PatchPaths & GRH_PATCH_FILE, vbArchive) Then
+        MsgBox "No existe el archivo .patch", vbExclamation, "Error"
+        Exit Sub
+    End If
+    
+    'Look if the new resource file already exists.
+    If FileExist(NewResourcePath, vbDirectory) Then
+        If (MsgBox("Ya se encuentra un archivo parcheado, ¿Desea reparchear?", vbInformation + vbYesNo, "Error") = vbNo) Then Exit Sub
+    Else
+        MkDir NewResourcePath
+    End If
+    
+    'Copy the Graphics.Ao file to the new ResourcesPath so we patch that file
+    Call FileCopy(OldResourcePath & GRH_PATCH_FILE, NewResourcePath & GRH_PATCH_FILE)
+    
+    'Show the status bar
+    Me.Height = 2880
+    StatusFrame.Caption = "Parcheando de " & OldVersion & " a " & NewVersion
+    
+    'Patch!
+#If SeguridadAlkon Then
+    Dim FileMD5 As String
+    FileMD5 = UCase(InputBox("Ingrese el MD5 del Graphics.AO final.", "Crear Parche", "00112233445566778899AABBDDEEFF00"))
+    If Apply_Patch(NewResourcePath, PatchPaths, FileMD5, frmMain.StatusBar) Then
+#Else
+    If Apply_Patch(NewResourcePath, PatchPaths, frmMain.StatusBar) Then
+#End If
+        'Show we finished
+        MsgBox "Operación terminada con éxito"
+    Else
+        'Show we finished
+        MsgBox "Operación abortada"
+        'Delete the Graphics File, its dummy
+        Call Kill(NewResourcePath & GRH_RESOURCE_FILE)
+    End If
+    
+    
+    'Hide status
+    Me.Height = 2055
+    
+End Sub
 
 Private Sub cmdCompress_Click()
     Dim SourcePath As String
@@ -216,3 +288,4 @@ Private Sub cmdPatch_Click()
     'Hide status
     Me.Height = 2055
 End Sub
+

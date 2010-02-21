@@ -1354,11 +1354,7 @@ On Local Error GoTo ErrHandler
     'Check integrity
     If (PatchFileHead.lngNumFiles = WrittenFiles) Then
 #If SeguridadAlkon Then
-        Dim md5 As New clsMD5
-        md5.MD5Reset
-        Debug.Print md5.GetMD5File(OutputFilePath)
-        md5.MD5Reset
-        If md5.GetMD5File(OutputFilePath) = CheckSum Then
+        If MD5.HashFile(OutputFilePath) = CheckSum Then
 #End If
             'Replace File
             Call Kill(ResourceFilePath)

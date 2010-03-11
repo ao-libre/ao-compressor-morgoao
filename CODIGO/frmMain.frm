@@ -1,5 +1,5 @@
 VERSION 5.00
-Object = "{831FDD16-0C5C-11D2-A9FC-0000F8754DA1}#2.0#0"; "mscomctl.ocx"
+Object = "{831FDD16-0C5C-11D2-A9FC-0000F8754DA1}#2.0#0"; "MSCOMCTL.ocx"
 Begin VB.Form frmMain 
    Caption         =   "Compresor de recursos graficos"
    ClientHeight    =   1515
@@ -133,7 +133,7 @@ Private Sub cmdApplyPatch_Click()
     End If
     
     'Copy the Graphics.Ao file to the new ResourcesPath so we patch that file
-    Call FileCopy(OldResourcePath & GRH_PATCH_FILE, NewResourcePath & GRH_PATCH_FILE)
+    Call FileCopy(OldResourcePath & GRH_RESOURCE_FILE, NewResourcePath & GRH_RESOURCE_FILE)
     
     'Show the status bar
     Me.Height = 2880

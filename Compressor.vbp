@@ -1,7 +1,7 @@
 Type=Exe
-Reference=*\G{00020430-0000-0000-C000-000000000046}#2.0#0#C:\WINDOWS\system32\stdole2.tlb#OLE Automation
-Reference=*\G{E1211242-8E94-11D1-8808-00C04FC2C602}#1.0#0#C:\WINDOWS\system32\dx7vb.dll#DirectX 7 for Visual Basic Type Library
-Object={831FDD16-0C5C-11D2-A9FC-0000F8754DA1}#2.0#0; mscomctl.ocx
+Reference=*\G{00020430-0000-0000-C000-000000000046}#2.0#0#..\..\..\..\WINDOWS\system32\stdole2.tlb#OLE Automation
+Reference=*\G{E1211242-8E94-11D1-8808-00C04FC2C602}#1.0#0#..\..\..\..\WINDOWS\system32\dx7vb.dll#DirectX 7 for Visual Basic Type Library
+Object={831FDD16-0C5C-11D2-A9FC-0000F8754DA1}#2.0#0; MSCOMCTL.ocx
 Form=CODIGO\frmMain.frm
 Module=modCompression; CODIGO\modCompression.bas
 Module=modGeneral; CODIGO\modGeneral.bas
